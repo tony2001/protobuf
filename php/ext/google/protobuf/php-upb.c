@@ -767,6 +767,18 @@ static const char *decode_msg(upb_decstate *d, const char *ptr, upb_msg *msg,
   }
 
   if (ptr != d->limit) decode_err(d);
+
+  /* now make sure all required fields are set */
+  if (msg) {
+    int i;
+    for (i = 0; i < layout->field_count; i++) {
+      const upb_msglayout_field *f = layout->fields + i;
+      if (f->label == UPB_LABEL_REQUIRED && !_upb_hasbit_field(msg, f)) {
+        decode_err(d);
+      }
+    }
+  }
+
   return ptr;
 }
 
@@ -780,7 +792,6 @@ bool upb_decode(const char *buf, size_t size, void *msg, const upb_msglayout *l,
 
   if (setjmp(state.err)) return false;
 
-  if (size == 0) return true;
   decode_msg(&state, buf, msg, l);
 
   return state.end_group == 0;
@@ -1166,6 +1177,9 @@ bool upb_encode_message(upb_encstate *e, const char *msg,
       } else if (f->presence > 0) {
         /* Proto2 presence: hasbit. */
         if (!_upb_hasbit_field(msg, f)) {
+          if (f->label == UPB_LABEL_REQUIRED) {
+            return false;
+          }
           continue;
         }
       } else {

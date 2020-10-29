@@ -260,6 +260,10 @@ static void Message_unset_property(PROTO_VAL *obj, PROTO_STR *member,
 
   if (!f) return;
 
+  if (ZEND_WRONG_PROPERTY_INFO == zend_get_property_info(intern->std.ce, Z_STR_P(member), 0)) {
+    return;
+  }
+
   if (!upb_fielddef_haspresence(f)) {
     zend_throw_exception_ex(
         NULL, 0,
@@ -295,7 +299,11 @@ static zval *Message_read_property(PROTO_VAL *obj, PROTO_STR *member,
   const upb_fielddef *f = get_field(intern, member);
   upb_arena *arena = Arena_Get(&intern->arena);
 
-  if (!f) return NULL;
+  if (!f) return &EG(uninitialized_zval);
+
+  if (ZEND_WRONG_PROPERTY_INFO == zend_get_property_info(intern->std.ce, Z_STR_P(member), 0)) {
+    return &EG(uninitialized_zval);
+  }
 
   if (upb_fielddef_ismap(f)) {
     upb_mutmsgval msgval = upb_msg_mutable(intern->msg, f, arena);
@@ -341,6 +349,10 @@ static PROTO_RETURN_VAL Message_write_property(
   upb_msgval msgval;
 
   if (!f) goto error;
+
+  if (ZEND_WRONG_PROPERTY_INFO == zend_get_property_info(intern->std.ce, Z_STR_P(member), 0)) {
+    goto error;
+  }
 
   if (upb_fielddef_ismap(f)) {
     msgval.map_val = MapField_GetUpbMap(val, f, arena);

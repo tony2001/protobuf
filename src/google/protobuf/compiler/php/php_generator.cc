@@ -650,7 +650,7 @@ void GenerateOneofField(const OneofDescriptor* oneof, io::Printer* printer) {
 }
 
 void GenerateFieldAccessor(const FieldDescriptor* field, bool is_descriptor,
-                           io::Printer* printer) {
+                           bool is_proto2, io::Printer* printer) {
   const OneofDescriptor* oneof = field->real_containing_oneof();
 
   // Generate getter.
@@ -669,11 +669,27 @@ void GenerateFieldAccessor(const FieldDescriptor* field, bool is_descriptor,
         "camel_name", UnderscoresToCamelCase(field->name(), true),
         "number", IntToString(field->number()));
   } else if (field->has_presence()) {
-    printer->Print(
+    if (is_proto2) {
+      // proto2 is implemented in protobuf.so extension only
+      // the underlying implementation take full care of field presence and default values
+      printer->Print(
+        "public function get^camel_name^()\n"
+        "{\n"
+        "    return $this->^name^;\n"
+        "}\n\n",
+        "camel_name", UnderscoresToCamelCase(field->name(), true),
+        "name", field->name());
+    } else {
+      printer->Print(
         "public function get^camel_name^()\n"
         "{\n"
         "    return isset($this->^name^) ? $this->^name^ : ^default_value^;\n"
-        "}\n\n"
+        "}\n\n",
+        "camel_name", UnderscoresToCamelCase(field->name(), true),
+        "name", field->name(),
+        "default_value", DefaultForField(field));
+    }
+    printer->Print(
         "public function has^camel_name^()\n"
         "{\n"
         "    return isset($this->^name^);\n"
@@ -683,8 +699,7 @@ void GenerateFieldAccessor(const FieldDescriptor* field, bool is_descriptor,
         "    unset($this->^name^);\n"
         "}\n\n",
         "camel_name", UnderscoresToCamelCase(field->name(), true),
-        "name", field->name(),
-        "default_value", DefaultForField(field));
+        "name", field->name());
   } else {
     printer->Print(
         "public function get^camel_name^()\n"
@@ -1440,10 +1455,12 @@ void GenerateMessageFile(const FileDescriptor* file, const Descriptor* message,
   Outdent(&printer);
   printer.Print("}\n\n");
 
+  bool is_proto2 = file->syntax() == FileDescriptor::SYNTAX_PROTO2;
+
   // Field and oneof accessors.
   for (int i = 0; i < message->field_count(); i++) {
     const FieldDescriptor* field = message->field(i);
-    GenerateFieldAccessor(field, is_descriptor, &printer);
+    GenerateFieldAccessor(field, is_descriptor, is_proto2, &printer);
   }
   for (int i = 0; i < message->real_oneof_decl_count(); i++) {
     const OneofDescriptor* oneof = message->oneof_decl(i);
@@ -1820,13 +1837,6 @@ bool Generator::Generate(
   if (is_descriptor && file->name() != kDescriptorFile) {
     *error =
         "Can only generate PHP code for google/protobuf/descriptor.proto.\n";
-    return false;
-  }
-
-  if (!is_descriptor && file->syntax() != FileDescriptor::SYNTAX_PROTO3) {
-    *error =
-        "Can only generate PHP code for proto3 .proto files.\n"
-        "Please add 'syntax = \"proto3\";' to the top of your .proto file.\n";
     return false;
   }
 

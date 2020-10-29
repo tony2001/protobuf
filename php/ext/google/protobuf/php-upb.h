@@ -1,5 +1,6 @@
 /* Amalgamated source file */
-#include <stdint.h>/*
+#include <stdint.h>
+/*
 * This is where we define macros used across upb.
 *
 * All of these macros are undef'd in port_undef.inc to avoid leaking them to
