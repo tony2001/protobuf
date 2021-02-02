@@ -24,6 +24,13 @@ use Foo\testLowerCaseEnum;
 use PBEmpty\PBEcho\TestEmptyPackage;
 use Php\Test\TestNamespace;
 
+# This is not allowed, but we at least shouldn't crash.
+class C extends \Google\Protobuf\Internal\Message {
+    public function __construct($data = null) {
+        parent::__construct($data);
+    }
+}
+
 class GeneratedClassTest extends TestBase
 {
 
@@ -1669,6 +1676,33 @@ class GeneratedClassTest extends TestBase
         $this->assertTrue($m1 != $m2);
 
         # TODO: what about unknown fields?
+    }
+
+    #########################################################
+    # Test hasOneof<Field> methods exists and working
+    #########################################################
+
+    public function testHasOneof() {
+        $m = new TestMessage();
+        $this->assertFalse($m->hasOneofInt32());
+        $m->setOneofInt32(42);
+        $this->assertTrue($m->hasOneofInt32());
+        $m->setOneofString("bar");
+        $this->assertFalse($m->hasOneofInt32());
+        $this->assertTrue($m->hasOneofString());
+        $m->clear();
+        $this->assertFalse($m->hasOneofInt32());
+        $this->assertFalse($m->hasOneofString());
+    }
+
+    #########################################################
+    # Test that we don't crash if users create their own messages.
+    #########################################################
+
+    public function testUserDefinedClass() {
+      # This is not allowed, but at least we shouldn't crash.
+      $this->expectException(Exception::class);
+      $p = new C();
     }
 
     #########################################################
